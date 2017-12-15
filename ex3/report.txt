@@ -1,0 +1,78 @@
+Simulation Started
+Roommate 1 Active
+Roommate 2 Active
+Roommate 2 Active
+Roommate 1 Active
+Roommate 0 Active
+Roommate 0 Active
+Robot Active
+Roommate 1 Active
+Roommate 2 Active
+Roommate 0 Active
+Robot Active
+Roommate 2 Active
+Roommate 1 Active
+Roommate 0 Active
+Robot Active
+Roommate 1 Active
+Roommate 2 Active
+Roommate 0 Active
+Robot Active
+Roommate 2 Active
+Roommate 1 Active
+Roommate 0 Active
+Robot Active
+Roommate 2 Active
+Roommate 1 Active
+Roommate 0 Active
+Robot Active
+Roommate 1 Active
+Roommate 2 Active
+Roommate 0 Active
+Robot Active
+Roommate 1 Active
+Roommate 2 Active
+Roommate 0 Active
+Robot Active
+Roommate 2 Active
+Roommate 1 Active
+Roommate 0 Active
+Robot Active
+Roommate 1 Active
+Roommate 2 Active
+Roommate 0 Active
+Robot Active
+Roommate 2 Active
+Roommate 1 Active
+Roommate 0 Active
+Robot Active
+Roommate 1 Active
+Roommate 2 Active
+Roommate 0 Active
+Robot Active
+Roommate 2 Active
+Roommate 1 Active
+Roommate 0 Active
+Robot Active
+Roommate 1 Active
+Roommate 2 Active
+Roommate 0 Active
+Robot Active
+Roommate 2 Active
+Roommate 1 Active
+Roommate 0 Active
+Robot Active
+Roommate 2 Active
+Roommate 1 Active
+Roommate 0 Active
+Robot Active
+Roommate 1 Active
+Roommate 2 Active
+Roommate 0 Active
+Robot Active
+Roommate 2 Active
+Roommate 1 Active
+Roommate 0 Active
+Robot Active
+Roommate 1 Active
+Roommate 2 Active
