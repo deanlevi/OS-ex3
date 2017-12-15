@@ -40,7 +40,7 @@ void StartWashingRoom(char *argv[]) {
 	CreateThreadsSemaphoresAndMutex();
 	
 	wait_code = WaitForMultipleObjects(NumberOfThreadsToWaitFor, WashingRoom.p_thread_handles, TRUE, WashingRoom.TD);
-	if (WAIT_TIMEOUT != wait_code)	{
+	if (WAIT_TIMEOUT != wait_code)	{ // todo fix
 		WriteToDebugAndExit("Error when waiting for program to end.\n");
 	}
 	CloseThreadsSemaphoresAndMutex();
