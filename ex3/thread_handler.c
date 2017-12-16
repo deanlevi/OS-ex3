@@ -33,6 +33,13 @@ Description - implementation of the roommate's operation logic.
 void WINAPI RoommateThread(LPVOID lpParam);
 
 /*
+Parameters - none.
+Returns - none.
+Description - do washing, meaning signal full basket semaphore and wait for empty basket signal.
+*/
+void SignalFullBasketAndWaitForEmptyBasket();
+
+/*
 Parameters - RoommateIndex - the current roommate's index.
 Returns - none.
 Description - implementation of the roommate's changing clothing operation.
@@ -47,6 +54,13 @@ Returns - none.
 Description - implementation of the washing robot's operation logic.
 */
 void WINAPI WashingRobotThread();
+
+/*
+Parameters - none.
+Returns - none.
+Description - signal empty basket semaphore to each of the stuck out of clothes roommates.
+*/
+void ReleaseOutOfClothesRoommates();
 
 /*
 Parameters - none.
@@ -157,10 +171,11 @@ void WINAPI RoommateThread(LPVOID lpParam) {
 	}
 	int *RoommateIndexPointer = (int*)lpParam;
 	DWORD wait_code;
-	BOOL release_res;
+	DWORD release_res;
 	DWORD ret_val;
 	while (TRUE) {
 		Sleep(WashingRoom.RoommatesPointer[*RoommateIndexPointer].Ti); // wait Ti untill changing clothing
+		WashingRoom.RoommatesPointer[*RoommateIndexPointer].RunningTime += WashingRoom.RoommatesPointer[*RoommateIndexPointer].Ti;
 
 		wait_code = WaitForSingleObject(WashingRoom.WritingToFileMutex, INFINITE); // wait for Mutex access
 		if (WAIT_OBJECT_0 != wait_code) {
@@ -172,12 +187,28 @@ void WINAPI RoommateThread(LPVOID lpParam) {
 			WriteToDebugAndExit("Error when releasing WritingToFileMutex.\n");
 		}
 
+		if (WashingRoom.RoommatesPointer[*RoommateIndexPointer].RunningTime >= WashingRoom.TD) { // check if need to end running
+			WashingRoom.WashingRoomReachedTD = true;
+			ReleaseOutOfClothesRoommates();
+			release_res = ReleaseSemaphore( // signal FullBasket so washing machine will finish running
+				WashingRoom.FullBasket,
+				1, 		/* Signal that basket is full */
+				NULL);
+			if (release_res == FALSE) {
+				WriteToDebugAndExit("Error when releasing FullBasket semaphore.\n");
+			}
+			break;
+		}
+
 		if (WashingRoom.RoommatesPointer[*RoommateIndexPointer].NumberOfClothesInCloset == 0) { // need to wait for washing robot
 			WashingRoom.RoommatesPointer[*RoommateIndexPointer].ClosetIsEmpty = true;
 			wait_code = WaitForSingleObject(WashingRoom.EmptyBasket, INFINITE); // wait for empty basket indication
 			if (WAIT_OBJECT_0 != wait_code) {
 				WriteToDebugAndExit("Error when waiting for EmptyBasket semaphore.\n");
 			}
+		}
+		if (WashingRoom.WashingRoomReachedTD) {
+			break; // finish running
 		}
 
 		wait_code = WaitForSingleObject(WashingRoom.ChangeClothingMutex, INFINITE); // wait for Mutex access
@@ -189,19 +220,9 @@ void WINAPI RoommateThread(LPVOID lpParam) {
 															// maching is not full
 
 		if (WashingRoom.NumberOfClothesInBasket == WashingRoom.M) { // if basket is full
-			release_res = ReleaseSemaphore( // signal FullBasket
-				WashingRoom.FullBasket,
-				1, 		/* Signal that basket is full */
-				NULL);
-			if (release_res == FALSE) {
-				WriteToDebugAndExit("Error when releasing FullBasket semaphore.\n");
-			}
-
-			wait_code = WaitForSingleObject(WashingRoom.EmptyBasket, INFINITE); // wait for empty basket indication
-			if (WAIT_OBJECT_0 != wait_code) {
-				WriteToDebugAndExit("Error when waiting for EmptyBasket semaphore.\n");
-			}
+			SignalFullBasketAndWaitForEmptyBasket();
 		}
+
 		ChangeClothingAndFillBasket(*RoommateIndexPointer); // todo check it's okay to exchange only when having clothes and washing
 															// maching is not full
 
@@ -209,6 +230,24 @@ void WINAPI RoommateThread(LPVOID lpParam) {
 		if (FALSE == ret_val) {
 			WriteToDebugAndExit("Error when releasing ChangeClothingMutex.\n");
 		}
+	}
+}
+
+void SignalFullBasketAndWaitForEmptyBasket() {
+	DWORD wait_code;
+	BOOL release_res;
+
+	release_res = ReleaseSemaphore( // signal FullBasket
+		WashingRoom.FullBasket,
+		1, 		/* Signal that basket is full */
+		NULL);
+	if (release_res == FALSE) {
+		WriteToDebugAndExit("Error when releasing FullBasket semaphore.\n");
+	}
+
+	wait_code = WaitForSingleObject(WashingRoom.EmptyBasket, INFINITE); // wait for empty basket indication
+	if (WAIT_OBJECT_0 != wait_code) {
+		WriteToDebugAndExit("Error when waiting for EmptyBasket semaphore.\n");
 	}
 }
 
@@ -225,6 +264,10 @@ void WINAPI WashingRobotThread() {
 		wait_code = WaitForSingleObject(WashingRoom.FullBasket, INFINITE); // wait for basket to be full
 		if (WAIT_OBJECT_0 != wait_code) {
 			WriteToDebugAndExit("Error when waiting for FullBasket semaphore.\n");
+		}
+
+		if (WashingRoom.WashingRoomReachedTD) {
+			break; // finish running
 		}
 
 		wait_code = WaitForSingleObject(WashingRoom.WritingToFileMutex, INFINITE); // wait for Mutex access
@@ -247,19 +290,24 @@ void WINAPI WashingRobotThread() {
 		if (release_res == FALSE) {
 			WriteToDebugAndExit("Error when releasing EmptyBasket semaphore.\n");
 		}
+		ReleaseOutOfClothesRoommates();
+	}
+}
 
-		int RoommateIndex = 0; // releasing all waiting out of clothes roommates
-		for (; RoommateIndex < WashingRoom.NumberOfRoommates; RoommateIndex++) {
-			if (WashingRoom.RoommatesPointer[RoommateIndex].ClosetIsEmpty) {
-				release_res = ReleaseSemaphore( // signal EmptyBasket
-					WashingRoom.EmptyBasket,
-					1, 		/* Signal that basket is empty */
-					NULL);
-				if (release_res == FALSE) {
-					WriteToDebugAndExit("Error when releasing EmptyBasket semaphore.\n");
-				}
-				WashingRoom.RoommatesPointer[RoommateIndex].ClosetIsEmpty = false;
+void ReleaseOutOfClothesRoommates() {
+	BOOL release_res;
+	int RoommateIndex = 0; // releasing all waiting out of clothes roommates
+
+	for (; RoommateIndex < WashingRoom.NumberOfRoommates; RoommateIndex++) {
+		if (WashingRoom.RoommatesPointer[RoommateIndex].ClosetIsEmpty) {
+			release_res = ReleaseSemaphore( // signal EmptyBasket
+				WashingRoom.EmptyBasket,
+				1, 		/* Signal that basket is empty */
+				NULL);
+			if (release_res == FALSE) {
+				WriteToDebugAndExit("Error when releasing EmptyBasket semaphore.\n");
 			}
+			WashingRoom.RoommatesPointer[RoommateIndex].ClosetIsEmpty = false;
 		}
 	}
 }

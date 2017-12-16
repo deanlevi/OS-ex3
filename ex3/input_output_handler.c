@@ -144,6 +144,7 @@ void UpdateWashingRoomParameters(char *argv[]) {
 									WashingRoom.RoommatesPointer[CurrentRoommateIndex].Si - 1; // Si - 1 in the closet, 1 on the roommate
 			WashingRoom.RoommatesPointer[CurrentRoommateIndex].RoommateIndex = CurrentLineNumber - 3; // save roommate index
 			WashingRoom.RoommatesPointer[CurrentRoommateIndex].ClosetIsEmpty = false; // at first closet is not empty
+			WashingRoom.RoommatesPointer[CurrentRoommateIndex].RunningTime = 0; // reseting before starting threads
 		}
 	}
 	fclose(ParametersPointer);

@@ -37,12 +37,15 @@ void StartWashingRoom(char *argv[]) {
 	WashingRoom.NumberOfClothesInBasket = 0; // first no clothes are in basket
 	WashingRoom.ReportPointer = argv[2];
 	WashingRoom.DebugLogPointer = argv[3];
+	WashingRoom.WashingRoomReachedTD = false; // reseting before starting threads
+
 	CreateThreadsSemaphoresAndMutex();
-	
-	wait_code = WaitForMultipleObjects(NumberOfThreadsToWaitFor, WashingRoom.p_thread_handles, TRUE, WashingRoom.TD);
-	if (WAIT_TIMEOUT != wait_code)	{ // todo fix
+
+	wait_code = WaitForMultipleObjects(NumberOfThreadsToWaitFor, WashingRoom.p_thread_handles, TRUE, INFINITE);
+	if (WAIT_OBJECT_0 != wait_code)	{ // todo fix
 		WriteToDebugAndExit("Error when waiting for program to end.\n");
 	}
+
 	CloseThreadsSemaphoresAndMutex();
 }
 

@@ -21,6 +21,7 @@ DWORD Ti; // number of milliseconds till changing a clothing
 DWORD Si; // number of clothes
 DWORD NumberOfClothesInCloset;
 int RoommateIndex;
+DWORD RunningTime;
 bool ClosetIsEmpty;
 }RoommateProperties;
 
@@ -40,9 +41,10 @@ typedef struct _WashingRoomDatabase {
 	HANDLE ChangeClothingMutex;
 	HANDLE WritingToFileMutex; // for writing to report log
 
-	// Debug Information
+	// Helping Information
 	char *DebugLogPointer; // needed for printing errors before exiting
 	char *ReportPointer; // needed to update report log
+	bool WashingRoomReachedTD;
 }WashingRoomDatabase;
 
 WashingRoomDatabase WashingRoom;
