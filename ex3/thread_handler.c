@@ -35,9 +35,16 @@ void WINAPI RoommateThread(LPVOID lpParam);
 /*
 Parameters - none.
 Returns - none.
-Description - do washing, meaning signal full basket semaphore and wait for empty basket signal.
+Description - signal full basket semaphore.
 */
-void SignalFullBasketAndWaitForEmptyBasket();
+void SignalFullBasket();
+
+/*
+Parameters - none.
+Returns - none.
+Description -  wait for empty basket semaphore signal.
+*/
+void WaitForEmptyBasket();
 
 /*
 Parameters - RoommateIndex - the current roommate's index.
@@ -70,6 +77,20 @@ Description - implementation of the washing robot's washing clothes operation.
 			  NumberOfClothesInCloset is an output parameter for all roommate's that changed clothes.
 */
 void WashClothesAndReturnToRoommates();
+
+/*
+Parameters - Mutex - a mutex to wait for.
+Returns - none.
+Description - wait for mutex.
+*/
+void WaitForOneMutex(HANDLE Mutex);
+
+/*
+Parameters - Mutex - a mutex to release.
+Returns - none.
+Description - release mutex.
+*/
+void ReleaseOneMutex(HANDLE Mutex);
 
 /*
 Parameters - none.
@@ -170,71 +191,48 @@ void WINAPI RoommateThread(LPVOID lpParam) {
 		WriteToDebugAndExit("Error in RoommateThread. Received null pointer.\n");
 	}
 	int *RoommateIndexPointer = (int*)lpParam;
-	DWORD wait_code;
-	DWORD release_res;
-	DWORD ret_val;
 	while (TRUE) {
 		Sleep(WashingRoom.RoommatesPointer[*RoommateIndexPointer].Ti); // wait Ti untill changing clothing
 		WashingRoom.RoommatesPointer[*RoommateIndexPointer].RunningTime += WashingRoom.RoommatesPointer[*RoommateIndexPointer].Ti;
 
-		wait_code = WaitForSingleObject(WashingRoom.WritingToFileMutex, INFINITE); // wait for Mutex access
-		if (WAIT_OBJECT_0 != wait_code) {
-			WriteToDebugAndExit("Error when waiting for WritingToFileMutex.\n");
-		}
+		WaitForOneMutex(WashingRoom.WritingToFileMutex);
 		RoommateActiveReport(*RoommateIndexPointer); // print to report log that roommate [index] finished waiting
-		ret_val = ReleaseMutex(WashingRoom.WritingToFileMutex); // release mutex
-		if (FALSE == ret_val) {
-			WriteToDebugAndExit("Error when releasing WritingToFileMutex.\n");
-		}
+		ReleaseOneMutex(WashingRoom.WritingToFileMutex);
 
-		if (WashingRoom.RoommatesPointer[*RoommateIndexPointer].RunningTime >= WashingRoom.TD) { // check if need to end running
+		if (WashingRoom.RoommatesPointer[*RoommateIndexPointer].RunningTime >= WashingRoom.TD &&
+																	!WashingRoom.WashingRoomReachedTD) { // check if need to end running
 			WashingRoom.WashingRoomReachedTD = true;
 			ReleaseOutOfClothesRoommates();
-			release_res = ReleaseSemaphore( // signal FullBasket so washing machine will finish running
-				WashingRoom.FullBasket,
-				1, 		/* Signal that basket is full */
-				NULL);
-			if (release_res == FALSE) {
-				WriteToDebugAndExit("Error when releasing FullBasket semaphore.\n");
-			}
+			SignalFullBasket(); // signal FullBasket so washing machine will finish running
 			break;
 		}
 
 		if (WashingRoom.RoommatesPointer[*RoommateIndexPointer].NumberOfClothesInCloset == 0) { // need to wait for washing robot
 			WashingRoom.RoommatesPointer[*RoommateIndexPointer].ClosetIsEmpty = true;
-			wait_code = WaitForSingleObject(WashingRoom.EmptyBasket, INFINITE); // wait for empty basket indication
-			if (WAIT_OBJECT_0 != wait_code) {
-				WriteToDebugAndExit("Error when waiting for EmptyBasket semaphore.\n");
-			}
+			if (WashingRoom.WashingRoomReachedTD) { break; } // covering corner case
+			WaitForOneMutex(WashingRoom.EmptyBasket);
 		}
 		if (WashingRoom.WashingRoomReachedTD) {
 			break; // finish running
 		}
 
-		wait_code = WaitForSingleObject(WashingRoom.ChangeClothingMutex, INFINITE); // wait for Mutex access
-		if (WAIT_OBJECT_0 != wait_code) {
-			WriteToDebugAndExit("Error when waiting for ChangeClothingMutex.\n");
-		}
+		WaitForOneMutex(WashingRoom.ChangeClothingMutex);
 
 		//ChangeClothingAndFillBasket(*RoommateIndexPointer); // todo check it's okay to exchange only when having clothes and washing
 															// maching is not full
 
 		if (WashingRoom.NumberOfClothesInBasket == WashingRoom.M) { // if basket is full
-			SignalFullBasketAndWaitForEmptyBasket();
+			SignalFullBasket();
+			WaitForEmptyBasket();
 		}
 
-		ChangeClothingAndFillBasket(*RoommateIndexPointer); // todo check it's okay to exchange only when having clothes and washing
-															// maching is not full
+		ChangeClothingAndFillBasket(*RoommateIndexPointer);
 
-		ret_val = ReleaseMutex(WashingRoom.ChangeClothingMutex); // release mutex
-		if (FALSE == ret_val) {
-			WriteToDebugAndExit("Error when releasing ChangeClothingMutex.\n");
-		}
+		ReleaseOneMutex(WashingRoom.ChangeClothingMutex);
 	}
 }
 
-void SignalFullBasketAndWaitForEmptyBasket() {
-	DWORD wait_code;
+void SignalFullBasket() {
 	BOOL release_res;
 
 	release_res = ReleaseSemaphore( // signal FullBasket
@@ -244,6 +242,10 @@ void SignalFullBasketAndWaitForEmptyBasket() {
 	if (release_res == FALSE) {
 		WriteToDebugAndExit("Error when releasing FullBasket semaphore.\n");
 	}
+}
+
+void WaitForEmptyBasket() {
+	DWORD wait_code;
 
 	wait_code = WaitForSingleObject(WashingRoom.EmptyBasket, INFINITE); // wait for empty basket indication
 	if (WAIT_OBJECT_0 != wait_code) {
@@ -319,6 +321,22 @@ void WashClothesAndReturnToRoommates() {
 														WashingRoom.RoommatesPointer[RoommateIndex].Si - 1;
 	}
 	WashingRoom.NumberOfClothesInBasket = 0; // empty basket
+}
+
+void WaitForOneMutex(HANDLE Mutex) {
+	DWORD wait_code;
+	wait_code = WaitForSingleObject(Mutex, INFINITE); // wait for Mutex access
+	if (WAIT_OBJECT_0 != wait_code) {
+		WriteToDebugAndExit("Error when waiting for Mutex.\n");
+	}
+}
+
+void ReleaseOneMutex(HANDLE Mutex) {
+	BOOL ret_val;
+	ret_val = ReleaseMutex(Mutex); // release mutex
+	if (FALSE == ret_val) {
+		WriteToDebugAndExit("Error when releasing Mutex.\n");
+	}
 }
 
 void CloseThreadsSemaphoresAndMutex() {
