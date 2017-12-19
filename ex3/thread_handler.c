@@ -218,9 +218,6 @@ void WINAPI RoommateThread(LPVOID lpParam) {
 
 		WaitForOneMutex(WashingRoom.ChangeClothingMutex);
 
-		//ChangeClothingAndFillBasket(*RoommateIndexPointer); // todo check it's okay to exchange only when having clothes and washing
-															// maching is not full
-
 		if (WashingRoom.NumberOfClothesInBasket == WashingRoom.M) { // if basket is full
 			SignalFullBasket();
 			WaitForEmptyBasket();
