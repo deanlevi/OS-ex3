@@ -269,15 +269,9 @@ void WINAPI WashingRobotThread() {
 			break; // finish running
 		}
 
-		wait_code = WaitForSingleObject(WashingRoom.WritingToFileMutex, INFINITE); // wait for Mutex access
-		if (WAIT_OBJECT_0 != wait_code) {
-			WriteToDebugAndExit("Error when waiting for WritingToFileMutex.\n");
-		}
+		WaitForOneMutex(WashingRoom.WritingToFileMutex);
 		RobotActiveReport(); // print to report log that robot starts washing
-		ret_val = ReleaseMutex(WashingRoom.WritingToFileMutex); // release mutex
-		if (FALSE == ret_val) {
-			WriteToDebugAndExit("Error when releasing WritingToFileMutex.\n");
-		}
+		ReleaseOneMutex(WashingRoom.WritingToFileMutex);
 
 		WashClothesAndReturnToRoommates();
 
